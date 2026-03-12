@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>csvchop — CSV to JSON Converter &amp; Parser Online</title>
+  <meta name="description" content="Paste any CSV, see it as a formatted table, convert to JSON instantly. Auto-detects delimiters. Browser-side — nothing uploaded to any server.">
+  <meta name="keywords" content="CSV to JSON, CSV parser online, convert CSV to JSON, CSV formatter, CSV inspector">
+  <meta property="og:title" content="csvchop — CSV to JSON Converter &amp; Parser Online">
+  <meta property="og:description" content="Paste any CSV, see it as a formatted table, convert to JSON instantly. Auto-detects delimiters. Browser-side — nothing uploaded.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://csvchop.radicchio.page">
+  <link rel="canonical" href="https://csvchop.radicchio.page">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        "name": "csvchop",
+        "url": "https://csvchop.radicchio.page",
+        "description": "Paste any CSV, see it as a formatted table, convert to JSON instantly. Auto-detects delimiters. Browser-side — nothing uploaded.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": [
+          "Auto-detect CSV delimiter (comma, tab, semicolon, pipe)",
+          "Live table preview",
+          "Convert CSV to JSON (array of objects or array of arrays)",
+          "Download JSON file",
+          "Browser-side — nothing uploaded"
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is my CSV data uploaded to a server?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. csvchop runs entirely in your browser using JavaScript. Your data never leaves your machine."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What CSV delimiters does csvchop support?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "csvchop auto-detects comma, tab, semicolon, and pipe delimiters. You can also override the delimiter manually."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What JSON formats can csvchop export?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "csvchop exports two formats: array of objects (each row becomes an object with column headers as keys — most common for APIs) and array of arrays (raw rows including the header row)."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does csvchop handle quoted fields and line breaks?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. csvchop uses PapaParse, a robust CSV parser that handles quoted fields, escaped characters, and embedded newlines correctly."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is the maximum file size csvchop can handle?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "csvchop runs in your browser, so limits depend on your device memory. It handles files up to tens of thousands of rows without issue. For very large files (millions of rows), use a dedicated data tool."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I use csvchop with TSV (tab-separated values)?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. csvchop auto-detects tab as a delimiter. TSV files work the same as CSV — just paste or drop your file."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1a1814;
+      --surface: #221f1b;
+      --border: #2e2b26;
+      --text: #e0d8c8;
+      --muted: #8f8577;
+      --accent: #c8a84e;
+      --accent-dim: #a08838;
+      --ok: #6a9f6a;
+      --err: #c47070;
+      --font: 'Courier New', Courier, monospace;
+    }
+
+    html { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    header h1 span { color: var(--accent); }
+    header p {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .badge {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      flex: 1;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+    }
+    .pane + .pane {
+      border-left: 1px solid var(--border);
+    }
+
+    .pane-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+    }
+    .pane-header label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .delimiter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+    .delimiter-row label { font-size: 11px; color: var(--muted); text-transform: none; letter-spacing: 0; }
+    select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-family: var(--font);
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    select:focus { outline: 1px solid var(--accent); }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      color: var(--text);
+      border: none;
+      resize: none;
+      font-family: var(--font);
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 14px;
+      outline: none;
+      min-height: 260px;
+    }
+    textarea::placeholder { color: var(--muted); }
+
+    .output-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .tab-row {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 8px 16px;
+      font-family: var(--font);
+      font-size: 12px;
+      background: none;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .tab.active {
+      color: var(--accent);
+      background: var(--surface);
+    }
+    .tab:hover:not(.active) { color: var(--text); }
+
+    .output-area {
+      flex: 1;
+      overflow: auto;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      padding: 0;
+    }
+    table {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th {
+      background: var(--surface);
+      color: var(--accent);
+      padding: 7px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+    }
+    td {
+      padding: 5px 12px;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      color: var(--text);
+      white-space: nowrap;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    tr:hover td { background: rgba(200, 168, 78, 0.05); }
+    td.empty { color: var(--muted); font-style: italic; }
+
+    .json-out {
+      padding: 14px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre;
+      overflow: auto;
+      height: 100%;
+    }
+
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty-state strong { display: block; margin-bottom: 6px; color: var(--text); }
+
+    .error-msg {
+      padding: 14px;
+      color: var(--err);
+      font-size: 13px;
+    }
+
+    .action-bar {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      flex-wrap: wrap;
+    }
+    .stat { font-size: 12px; color: var(--muted); }
+    .stat strong { color: var(--text); }
+
+    button.btn {
+      padding: 6px 14px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 3px;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+    }
+    button.btn:hover { background: var(--accent-dim); }
+    button.btn.secondary {
+      background: none;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      font-weight: 400;
+    }
+    button.btn.secondary:hover { color: var(--text); border-color: var(--muted); }
+
+    .json-mode-row {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .json-mode-btn {
+      padding: 6px 14px;
+      background: none;
+      border: none;
+      border-right: 1px solid var(--border);
+      font-family: var(--font);
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .json-mode-btn.active { color: var(--accent); background: rgba(200,168,78,0.08); }
+    .json-mode-btn:hover:not(.active) { color: var(--text); }
+
+    /* info section */
+    .info {
+      padding: 36px 24px 20px;
+      max-width: 760px;
+    }
+    .info h2 {
+      font-size: 15px;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .info p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-size: 12px;
+    }
+    .feature strong { display: block; color: var(--accent); margin-bottom: 3px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .faq { margin-top: 24px; }
+    .faq h2 { font-size: 15px; color: var(--accent); margin-bottom: 14px; }
+    details {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0;
+    }
+    details summary {
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+      list-style: none;
+      user-select: none;
+    }
+    details summary::before { content: '+ '; color: var(--accent); }
+    details[open] summary::before { content: '− '; }
+    details p {
+      margin: 8px 0 0 14px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .related {
+      padding: 0 24px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .related h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px; padding-top: 16px; }
+    .related-links { display: flex; gap: 10px; flex-wrap: wrap; }
+    .related-links a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 3px;
+    }
+    .related-links a:hover { border-color: var(--accent); }
+
+    footer {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 700px) {
+      .workspace { grid-template-columns: 1fr; }
+      .pane + .pane { border-left: none; border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>csv<span>chop</span></h1>
+  <p>Paste CSV → table + JSON. Auto-detects delimiter. Nothing uploaded.</p>
+  <span class="badge">browser-side only</span>
+</header>
+
+<div class="workspace">
+  <!-- INPUT PANE -->
+  <div class="pane">
+    <div class="pane-header">
+      <label>Input CSV</label>
+      <div class="delimiter-row">
+        <label for="delimiter">delimiter</label>
+        <select id="delimiter">
+          <option value="auto">auto-detect</option>
+          <option value=",">comma (,)</option>
+          <option value="	">tab (\t)</option>
+          <option value=";">semicolon (;)</option>
+          <option value="|">pipe (|)</option>
+        </select>
+      </div>
+    </div>
+    <textarea id="csvInput" placeholder="Paste your CSV here…
+
+name,age,city
+Alice,30,New York
+Bob,25,Los Angeles
+Charlie,35,Chicago" spellcheck="false"></textarea>
+    <div class="action-bar">
+      <span class="stat" id="inputStat">—</span>
+      <button class="btn secondary" onclick="clearAll()">Clear</button>
+      <button class="btn secondary" onclick="loadSample()">Load sample</button>
+    </div>
+  </div>
+
+  <!-- OUTPUT PANE -->
+  <div class="pane">
+    <div class="pane-header">
+      <label>Output</label>
+    </div>
+    <div class="output-pane">
+      <div class="tab-row">
+        <button class="tab active" id="tabTable" onclick="setTab('table')">Table</button>
+        <button class="tab" id="tabJson" onclick="setTab('json')">JSON</button>
+      </div>
+      <div id="jsonModeRow" class="json-mode-row" style="display:none;">
+        <button class="json-mode-btn active" id="jmObj" onclick="setJsonMode('objects')">Array of Objects</button>
+        <button class="json-mode-btn" id="jmArr" onclick="setJsonMode('arrays')">Array of Arrays</button>
+      </div>
+      <div class="output-area" id="outputArea">
+        <div class="empty-state">
+          <strong>Paste CSV to get started</strong>
+          Results appear here instantly
+        </div>
+      </div>
+    </div>
+    <div class="action-bar">
+      <span class="stat" id="outputStat">—</span>
+      <button class="btn secondary" id="copyBtn" onclick="copyOutput()" style="display:none;">Copy</button>
+      <button class="btn" id="downloadBtn" onclick="downloadOutput()" style="display:none;">Download JSON</button>
+    </div>
+  </div>
+</div>
+
+<!-- INFO SECTION -->
+<div class="info">
+  <h2>What is csvchop?</h2>
+  <p>
+    csvchop is a free, browser-side tool for inspecting and converting CSV data.
+    Paste any CSV — comma, tab, semicolon, or pipe separated — and instantly see
+    it as a clean, scrollable table. Switch to the JSON tab to convert it to a
+    JSON array ready for use in APIs, code, or data pipelines. Nothing is uploaded.
+    Everything runs in your browser.
+  </p>
+  <p>
+    Whether you're debugging a data pipeline, prepping a CSV for an API call,
+    or just trying to see what columns a file has, csvchop gets you there in
+    seconds with no signup, no install, and no ads.
+  </p>
+
+  <div class="features">
+    <div class="feature"><strong>Auto-detect</strong>Detects comma, tab, semicolon, pipe automatically</div>
+    <div class="feature"><strong>Table preview</strong>Scrollable table with sticky headers</div>
+    <div class="feature"><strong>JSON export</strong>Array of objects or array of arrays</div>
+    <div class="feature"><strong>Download</strong>Save JSON file with one click</div>
+    <div class="feature"><strong>Quoted fields</strong>Handles embedded commas, newlines, quotes</div>
+    <div class="feature"><strong>No server</strong>Your data never leaves your machine</div>
+  </div>
+
+  <div class="faq">
+    <h2>FAQ</h2>
+
+    <details>
+      <summary>Is my CSV data uploaded to a server?</summary>
+      <p>No. csvchop runs entirely in your browser using JavaScript. Your data never leaves your machine. There is no server to upload to.</p>
+    </details>
+
+    <details>
+      <summary>What CSV delimiters does csvchop support?</summary>
+      <p>csvchop auto-detects comma, tab, semicolon, and pipe delimiters. You can also override the delimiter manually using the dropdown in the input panel.</p>
+    </details>
+
+    <details>
+      <summary>What JSON formats can csvchop export?</summary>
+      <p>csvchop exports two formats: <em>array of objects</em> (each row becomes an object with column headers as keys — the most common format for APIs) and <em>array of arrays</em> (raw rows including the header row, useful when you need to preserve the structure exactly).</p>
+    </details>
+
+    <details>
+      <summary>Does csvchop handle quoted fields and embedded newlines?</summary>
+      <p>Yes. csvchop uses PapaParse, a battle-tested CSV parser that handles quoted fields, escaped characters, embedded commas, and embedded newlines correctly.</p>
+    </details>
+
+    <details>
+      <summary>What is the maximum file size csvchop can handle?</summary>
+      <p>csvchop runs in your browser, so limits depend on your device's memory. It handles files with tens of thousands of rows without issue. For very large files (millions of rows), use a dedicated data tool like pandas, DuckDB, or csvkit.</p>
+    </details>
+
+    <details>
+      <summary>Can I use csvchop with TSV (tab-separated) files?</summary>
+      <p>Yes. csvchop auto-detects tab as a delimiter. TSV files work identically to CSV — just paste your content or use the delimiter override if auto-detect doesn't pick it up.</p>
+    </details>
+  </div>
+</div>
+
+<div class="related">
+  <h3>More tools from the -chop family</h3>
+  <div class="related-links">
+    <a href="https://hashchop.radicchio.page">hashchop — SHA hash generator</a>
+    <a href="https://jwtchop.radicchio.page">jwtchop — JWT decoder</a>
+    <a href="https://b64chop.radicchio.page">b64chop — Base64 encoder</a>
+    <a href="https://epochop.radicchio.page">epochop — Unix timestamp</a>
+    <a href="https://qrnch.radicchio.page">qrnch — QR code generator</a>
+    <a href="https://linkscrub.radicchio.page">linkscrub — URL cleaner</a>
+    <a href="https://envlint.radicchio.page">envlint — .env validator</a>
+  </div>
+</div>
+
+<footer>
+  <span>csvchop — browser-side CSV tools</span>
+  <a href="https://bitterdesk.com" target="_blank" rel="noopener">Support</a>
+  <span style="margin-left:auto; color: var(--muted);">nothing is uploaded · ever</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha512-dfX5uYVXzyU8+KHqj8bjo7UkOdg18PaOtpa48djpNbZHwExddghZ+ZmzWT06R5v6NSk3ZUfsH6FNEDepLx9hPQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+  let currentTab = 'table';
+  let currentJsonMode = 'objects';
+  let parsedData = null;
+  let currentOutput = '';
+
+  const sampleCSV = `name,age,city,email,score
+Alice,30,New York,alice@example.com,94.5
+Bob,25,Los Angeles,bob@example.com,87.2
+Charlie,35,Chicago,charlie@example.com,91.8
+Diana,28,Houston,diana@example.com,78.6
+Evan,42,Phoenix,evan@example.com,88.1`;
+
+  const csvInput = document.getElementById('csvInput');
+  const delimiter = document.getElementById('delimiter');
+
+  csvInput.addEventListener('input', parse);
+  delimiter.addEventListener('change', parse);
+
+  function loadSample() {
+    csvInput.value = sampleCSV;
+    parse();
+  }
+
+  function clearAll() {
+    csvInput.value = '';
+    parsedData = null;
+    currentOutput = '';
+    document.getElementById('outputArea').innerHTML = '<div class="empty-state"><strong>Paste CSV to get started</strong>Results appear here instantly</div>';
+    document.getElementById('inputStat').textContent = '—';
+    document.getElementById('outputStat').textContent = '—';
+    document.getElementById('copyBtn').style.display = 'none';
+    document.getElementById('downloadBtn').style.display = 'none';
+  }
+
+  function parse() {
+    const raw = csvInput.value.trim();
+    if (!raw) {
+      clearAll();
+      return;
+    }
+
+    const config = {
+      skipEmptyLines: true,
+      dynamicTyping: false,
+    };
+
+    const delim = delimiter.value;
+    if (delim !== 'auto') {
+      config.delimiter = delim;
+    }
+
+    const result = Papa.parse(raw, config);
+
+    if (result.errors && result.errors.length > 0 && result.data.length === 0) {
+      document.getElementById('outputArea').innerHTML = `<div class="error-msg">Parse error: ${result.errors[0].message}</div>`;
+      return;
+    }
+
+    parsedData = result;
+    const detectedDelim = result.meta.delimiter;
+    const rows = result.data;
+
+    const rowCount = rows.length > 0 ? rows.length - 1 : 0;
+    const colCount = rows.length > 0 ? rows[0].length : 0;
+    const delimLabel = delim === 'auto'
+      ? `auto (${detectedDelim === '\t' ? 'tab' : detectedDelim})`
+      : delim;
+
+    document.getElementById('inputStat').innerHTML = `<strong>${rowCount}</strong> rows · <strong>${colCount}</strong> cols · delimiter: ${delimLabel}`;
+
+    render();
+  }
+
+  function render() {
+    if (!parsedData) return;
+    if (currentTab === 'table') renderTable();
+    else renderJson();
+  }
+
+  function renderTable() {
+    const rows = parsedData.data;
+    if (!rows || rows.length === 0) {
+      document.getElementById('outputArea').innerHTML = '<div class="empty-state"><strong>No data</strong></div>';
+      return;
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    let html = '<div class="table-wrap"><table><thead><tr>';
+    headers.forEach((h, i) => {
+      html += `<th title="${escHtml(h)}">${escHtml(h) || `<span style="color:var(--muted)">col ${i+1}</span>`}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    dataRows.forEach(row => {
+      html += '<tr>';
+      for (let i = 0; i < headers.length; i++) {
+        const val = row[i] !== undefined ? row[i] : '';
+        const cls = val === '' ? ' class="empty"' : '';
+        const display = val === '' ? 'empty' : escHtml(val);
+        html += `<td${cls} title="${escHtml(val)}">${display}</td>`;
+      }
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    document.getElementById('outputArea').innerHTML = html;
+    document.getElementById('outputStat').innerHTML = `<strong>${dataRows.length}</strong> rows · <strong>${headers.length}</strong> cols`;
+    document.getElementById('copyBtn').style.display = 'none';
+    document.getElementById('downloadBtn').style.display = 'inline-block';
+  }
+
+  function renderJson() {
+    const rows = parsedData.data;
+    if (!rows || rows.length === 0) {
+      document.getElementById('outputArea').innerHTML = '<div class="empty-state"><strong>No data</strong></div>';
+      return;
+    }
+
+    let json;
+    if (currentJsonMode === 'objects') {
+      const headers = rows[0];
+      const dataRows = rows.slice(1);
+      const objects = dataRows.map(row => {
+        const obj = {};
+        headers.forEach((h, i) => {
+          obj[h] = row[i] !== undefined ? row[i] : '';
+        });
+        return obj;
+      });
+      json = JSON.stringify(objects, null, 2);
+    } else {
+      json = JSON.stringify(rows, null, 2);
+    }
+
+    currentOutput = json;
+    document.getElementById('outputArea').innerHTML = `<div class="json-out">${escHtml(json)}</div>`;
+
+    const lines = json.split('\n').length;
+    document.getElementById('outputStat').innerHTML = `<strong>${json.length.toLocaleString()}</strong> chars · <strong>${lines.toLocaleString()}</strong> lines`;
+    document.getElementById('copyBtn').style.display = 'inline-block';
+    document.getElementById('downloadBtn').style.display = 'inline-block';
+  }
+
+  function setTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabTable').className = 'tab' + (tab === 'table' ? ' active' : '');
+    document.getElementById('tabJson').className = 'tab' + (tab === 'json' ? ' active' : '');
+    document.getElementById('jsonModeRow').style.display = tab === 'json' ? 'flex' : 'none';
+    if (parsedData) render();
+  }
+
+  function setJsonMode(mode) {
+    currentJsonMode = mode;
+    document.getElementById('jmObj').className = 'json-mode-btn' + (mode === 'objects' ? ' active' : '');
+    document.getElementById('jmArr').className = 'json-mode-btn' + (mode === 'arrays' ? ' active' : '');
+    if (parsedData) renderJson();
+  }
+
+  function copyOutput() {
+    if (!currentOutput) return;
+    navigator.clipboard.writeText(currentOutput).then(() => {
+      const btn = document.getElementById('copyBtn');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = orig, 1500);
+    });
+  }
+
+  function downloadOutput() {
+    if (!parsedData) return;
+    const rows = parsedData.data;
+    if (!rows || rows.length === 0) return;
+
+    let json;
+    if (currentJsonMode === 'objects') {
+      const headers = rows[0];
+      const dataRows = rows.slice(1);
+      json = JSON.stringify(dataRows.map(row => {
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ''; });
+        return obj;
+      }), null, 2);
+    } else {
+      json = JSON.stringify(rows, null, 2);
+    }
+
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'csvchop.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function escHtml(s) {
+    if (s === undefined || s === null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
