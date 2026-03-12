@@ -65,4 +65,4 @@ Free. No account required. No rate limits.
 
 ## Support
 
-https://bitterdesk.com
+https://bitterdesk.com/s/csvchop/
