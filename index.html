@@ -260,6 +260,50 @@
     .type-badge.empty { background: rgba(143, 133, 119, 0.2); color: var(--muted); border: 1px solid rgba(143, 133, 119, 0.3); }
     .type-badge.str { background: rgba(200, 168, 78, 0.15); color: var(--accent); border: 1px solid rgba(200, 168, 78, 0.3); }
 
+    .help-tooltip {
+      position: relative;
+      display: inline-block;
+    }
+    .help-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      cursor: help;
+      position: relative;
+    }
+    .help-btn:hover { color: var(--text); border-color: var(--muted); }
+    .help-popup {
+      visibility: hidden;
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 11px;
+      color: var(--text);
+      white-space: pre-line;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      margin-bottom: 6px;
+    }
+    .help-popup::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: var(--border);
+    }
+    .help-btn:hover .help-popup { visibility: visible; }
+
     .output-pane {
       flex: 1;
       display: flex;
@@ -530,6 +574,12 @@ Charlie,35,Chicago" spellcheck="false"></textarea>
     </div>
     <div class="action-bar">
       <span class="stat" id="inputStat">—</span>
+      <div class="help-tooltip">
+        <button class="help-btn">?</button>
+        <div class="help-popup">⌘/Ctrl+Enter — Parse CSV
+⌘/Ctrl+Shift+C — Copy JSON
+⌘/Ctrl+K — Clear</div>
+      </div>
       <button class="btn secondary" onclick="clearAll()">Clear</button>
       <button class="btn secondary" onclick="loadSample()">Load sample</button>
     </div>
@@ -728,6 +778,23 @@ Evan,42,Phoenix,evan@example.com,88.1`;
   // Prevent default behavior on document level
   document.addEventListener('dragover', (e) => e.preventDefault());
   document.addEventListener('drop', (e) => e.preventDefault());
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+    
+    if (cmdOrCtrl && e.key === 'Enter') {
+      e.preventDefault();
+      parse();
+    } else if (cmdOrCtrl && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+      e.preventDefault();
+      copyOutput();
+    } else if (cmdOrCtrl && (e.key === 'K' || e.key === 'k')) {
+      e.preventDefault();
+      clearAll();
+    }
+  });
 
   function loadSample() {
     csvInput.value = sampleCSV;
