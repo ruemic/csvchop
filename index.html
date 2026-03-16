@@ -758,11 +758,25 @@ Evan,42,Phoenix,evan@example.com,88.1`;
 
     const rowCount = rows.length > 0 ? rows.length - 1 : 0;
     const colCount = rows.length > 0 ? rows[0].length : 0;
+    
+    // Count empty cells (excluding header row)
+    let emptyCells = 0;
+    if (rows.length > 1) {
+      const dataRows = rows.slice(1);
+      dataRows.forEach(row => {
+        for (let i = 0; i < colCount; i++) {
+          if (row[i] === undefined || row[i] === '' || row[i].toString().trim() === '') {
+            emptyCells++;
+          }
+        }
+      });
+    }
+    
     const delimLabel = delim === 'auto'
       ? `auto (${detectedDelim === '\t' ? 'tab' : detectedDelim})`
       : delim;
 
-    document.getElementById('inputStat').innerHTML = `<strong>${rowCount}</strong> rows · <strong>${colCount}</strong> cols · delimiter: ${delimLabel}`;
+    document.getElementById('inputStat').innerHTML = `<strong>${rowCount}</strong> rows · <strong>${colCount}</strong> cols · <strong>${emptyCells}</strong> empty · delimiter: ${delimLabel}`;
 
     render();
   }
